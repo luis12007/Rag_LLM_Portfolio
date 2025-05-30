@@ -1,0 +1,36 @@
+Luis Alexander Hernández Martínez - AI Engineer
+
+Personal Information
+Name: Luis Alexander Hernández Martínez
+Age: 23 years old
+Location: El Salvador
+Profession: AI Engineer & Software Engineer
+Company: My Software SV (Founder & CEO)
+
+About Me
+AI Engineer specializing in machine learning and software development. 
+Founder of My Software SV with 3+ years experience.
+Built 15+ software solutions for 20+ clients.
+
+Technical Skills
+Languages: Python, Java, C++, JavaScript, C#
+AI/ML: TensorFlow, PyTorch, Scikit-learn, XGBoost, Pandas
+Web: React, Django, Node.js
+Cloud: AWS, Google Cloud, DigitalOcean
+
+Key Projects
+- SaaS Billing System with government compliance
+- RAG Portfolio Assistant with quantized LLM
+- Enterprise Digital Billing API
+- Multi-Branch ERP System
+- Judge Gymnasts Mobile App
+
+Education
+Universidad Centroamericana (UCA) - Software Engineering (5 years)
+
+Interests
+Boxing, Tennis, Technology, Cooking
+
+Contact
+Email: alexmtzai2002@gmail.com
+Portfolio: https://portfolio-production-319e.up.railway.app

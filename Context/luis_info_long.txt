@@ -1,0 +1,280 @@
+Luis Alexander Hernández Martínez - Professional Portfolio
+
+Personal Information
+Name: Luis Alexander Hernández Martínez
+Age: 23 years old
+Location: El Salvador
+Profession: AI Engineer & Software Engineer
+Company: My Software SV (Founder & CEO)
+
+About Me
+I'm a passionate 23-year-old software engineer specializing in Artificial Intelligence, with a deep love for transforming innovative ideas into functional products. AI is my passion and I'm dedicated to creating impactful solutions that make a real difference.
+
+I consider myself an AI Engineer first and foremost, though my expertise spans the full spectrum of software development. I'm an early adopter of new technologies and always eager to explore cutting-edge solutions.
+
+Interests & Hobbies
+Boxing - Physical fitness and discipline
+Tennis - Strategic thinking and coordination
+Technology - Always exploring new tech trends
+Early Adopter - Love trying new tools and frameworks
+Cooking - Creative expression and experimentation
+
+Education
+Universidad Centroamericana (UCA) - El Salvador
+Degree: Software Engineering
+Duration: 5 years
+Focus: Built a strong foundation in computer science and developed expertise across multiple domains of software development
+
+Professional Experience
+
+My Software SV - Founder & CEO
+Duration: 3+ years (2022 - Present)
+Location: El Salvador
+
+As the founder and CEO of my own software company, I have:
+- Developed 15+ comprehensive software solutions
+- Worked with 20+ clients across multiple industries
+- Built SaaS products, ERP systems, CRM solutions, desktop applications, REST APIs, and mobile applications
+- Achieved 97% client satisfaction rate with 90% on-time project delivery
+- Reduced system errors by 25% through industry best practices implementation
+
+Fe y Alegría El Salvador - IT Support Specialist
+Duration: August 2021 - January 2022
+Location: Antiguo Cuscatlán, El Salvador
+Type: Internship
+
+- Delivered comprehensive technical support to over 100 employees
+- Achieved 95% first-call resolution rate
+- Streamlined system access protocols and optimized resource allocation
+- Boosted departmental productivity by 15% through enhanced workflow efficiency
+
+Technical Skills
+
+Programming Languages
+Python - Primary language for AI/ML development
+Java - Enterprise applications and Spring Boot APIs
+C++ - System programming and performance-critical applications
+JavaScript - Full-stack web development
+C# - Desktop applications and .NET development
+R - Currently learning for statistical analysis
+
+AI/Machine Learning Technologies
+TensorFlow - Deep learning model development
+PyTorch - Neural network research and implementation
+Scikit-learn - Traditional machine learning algorithms
+XGBoost - Gradient boosting for structured data
+Pandas - Data manipulation and analysis
+Matplotlib - Data visualization
+NumPy - Numerical computing
+
+Web Development
+React - Frontend development and SPA creation
+Django - Python web framework for robust applications
+Node.js - Backend JavaScript development
+Express.js - RESTful API development
+
+Cloud & Infrastructure
+AWS - Amazon Web Services for cloud deployment
+Google Cloud Platform - Cloud services and AI tools
+DigitalOcean - VPS hosting and server management
+Linux - Server administration and deployment
+Docker - Containerization and deployment
+Apache - Web server configuration
+Nginx - Reverse proxy and load balancing
+
+DevOps & Automation
+Jenkins - CI/CD pipeline automation
+Git - Version control and collaboration
+Automated Testing - Quality assurance processes
+Server Configuration - Nginx, Apache, proxy setup
+
+Mobile Development
+React Native - Cross-platform mobile development
+Expo - React Native development platform
+Android - Native Android development knowledge
+iOS - Cross-platform iOS development
+
+Major Projects
+
+1. SaaS Billing System
+Technology: React, REST API, Custom Server Deployment
+Description: Full-stack billing system with government compliance standards
+Features:
+- Automated invoice generation and management
+- Real-time payment tracking and notifications
+- Multi-API integration for enhanced functionality
+- Government compliance standards implementation
+- Secure user authentication and authorization
+
+2. RAG Portfolio Assistant
+Technology: LangChain, Quantized LLM, DigitalOcean
+Description: Intelligent AI assistant trained on portfolio data
+Features:
+- Self-quantized LLM optimized for CPU execution
+- 24/7 deployment on DigitalOcean infrastructure
+- Smart filtering for portfolio-related questions only
+- Vector similarity search for accurate information retrieval
+- Context-aware response generation
+
+3. Enterprise Digital Billing API
+Technology: Java Spring Boot, AWS, Nginx
+Description: Enterprise-grade API for digital billing integration
+Features:
+- Custom authentication token system
+- Multi-server architecture with AWS cloud integration
+- SMTP server integration with workarounds for port restrictions
+- Direct government API connectivity for compliance
+- Comprehensive logging and monitoring systems
+
+4. Multi-Branch ERP System
+Technology: C# .NET, Visual Studio Code, Cloud SQL Database
+Description: Comprehensive ERP solution for small businesses
+Features:
+- Cashier POS system for efficient customer service
+- Multi-branch inventory management (3 branches)
+- HR system for user administration and payroll
+- Ingredients and recipe management
+- Business intelligence and analytics modules
+
+5. Judge Gymnasts App
+Technology: React Native, Expo
+Description: Cross-platform application for gymnastics judges
+Features:
+- Custom authentication system
+- File management and organization
+- MAG/WAG calculators for scoring
+- Digital whiteboard for notes and diagrams
+- PDF export functionality
+- Responsive interface for tablets and mobile devices
+
+6. AI Voice Translation System (Work in Progress)
+Technology: Sequence-to-Sequence Models, Voice Recognition, TTS
+Description: Advanced AI system for Japanese to English anime dubbing
+Current Status:
+- Voice recognition pipeline (Japanese) - 100% complete
+- Speech-to-text conversion framework - 95% complete
+- AI sequence-to-sequence translation model - 85% complete
+- Text-to-speech synthesis engine - 80% complete
+- Voice cloning and replication system - 70% complete
+
+7. Open-Source Healthcare AI (Omdena Collaboration)
+Technology: Machine Learning, Python, Streamlit
+Description: Disease prediction model for African healthcare
+Contributions:
+- Data collection from multiple African health databases
+- Comprehensive exploratory data analysis (EDA)
+- Feature engineering and data preprocessing
+- Model development using ensemble methods
+- Results visualization and interpretation
+- Achieved 84% accuracy in disease prediction
+
+AI/ML Expertise
+
+Machine Learning Algorithms
+Supervised Learning - Classification and regression problems
+Unsupervised Learning - Clustering and dimensionality reduction
+Reinforcement Learning - Basic understanding and implementation
+Deep Learning - Neural networks and advanced architectures
+
+Specialized AI Areas
+Computer Vision - Image processing and recognition
+Natural Language Processing - Text analysis and understanding
+Audio Processing - Speech-to-text and text-to-speech
+Large Language Models (LLMs) - Implementation and optimization
+Time Series Prediction - Forecasting and pattern recognition
+Voice Recognition - Speech processing and analysis
+
+AI Implementation Experience
+Model Training - Custom model development and fine-tuning
+Model Optimization - Quantization for CPU execution
+Production Deployment - Real-world AI system implementation
+RAG Systems - Retrieval-Augmented Generation architecture
+Model Integration - Embedding AI into existing systems
+
+Current Focus & Goals
+I'm currently seeking opportunities as an AI Engineer where I can apply my creativity to develop cutting-edge AI projects using the latest architectures and techniques. My goal is to work on innovative AI solutions that push the boundaries of what's possible with current technology.
+
+Key Achievements
+3+ years of professional software development experience
+15+ projects completed successfully
+1 company founded and successfully operating
+20+ clients served across multiple industries
+97% client satisfaction rate maintained
+25% reduction in system errors through best practices
+84% accuracy achieved in healthcare AI project
+
+Portfolio Website
+My complete portfolio with detailed project information, case studies, and live demonstrations is available at: https://portfolio-production-319e.up.railway.app
+
+Contact Information
+Email: alexmtzai2002@gmail.com
+LinkedIn: https://www.linkedin.com/in/alexmtzai/
+GitHub: https://github.com/luis12007
+phone: (+503) 7752-2702
+Location: El Salvador
+
+Courses and Certifications
+
+Bootcamp Fundamentals in AI/ML
+Zero To Mastery Academy (Online)
+Completed: June 2024
+Focus: Fundamental concepts in Artificial Intelligence and Machine Learning
+
+Complete A.I. & Machine Learning, Data Science Course
+Zero to Mastery Academy
+Issued: January 2025
+Comprehensive course covering advanced AI/ML concepts and practical data science applications
+
+Algorithms and Data Structures
+Zero to Mastery Academy
+Issued: December 2024
+Deep dive into computer science fundamentals, algorithm optimization, and data structure implementation
+
+Leveraging NLP in Medical Prescription
+OMDENA Local Chapter
+Issued: May 2025
+Specialized course in Natural Language Processing applications for healthcare and medical prescription analysis
+
+AWS for Developers, Linux, SQL and more
+LinkedIn Learning
+Comprehensive training in cloud development, Linux system administration, and database management
+
+PyTorch for Deep Learning Bootcamp
+Zero To Mastery
+Issued: April 2025
+Advanced deep learning framework training with practical implementation experience
+
+TensorFlow for Deep Learning Bootcamp
+Zero To Mastery
+Issued: June 2025
+Comprehensive TensorFlow training for neural network development and deployment
+
+Machine Learning Basics
+Omdena Academy
+Issued: November 2024
+Foundation course in machine learning algorithms and practical applications
+
+Data Science and Python Basics
+Omdena Academy
+Issued: December 2024
+Essential data science methodologies and Python programming for data analysis
+
+Professional Philosophy
+I believe in transforming complex problems into elegant AI solutions. My approach combines technical expertise with creative problem-solving to build high-quality products that deliver real value. I'm constantly evolving as a professional, learning from every project, and refining my approach to stay at the forefront of AI and software development.
+
+Additional Technical Details
+Server Administration: I have extensive experience with Linux server administration, including configuring Apache and Nginx servers, setting up reverse proxies, and managing cloud deployments on DigitalOcean, AWS, and Google Cloud Platform.
+
+API Development: I specialize in building robust REST APIs using Java Spring Boot and Express.js, with experience in authentication systems, rate limiting, and integration with multiple third-party services.
+
+Database Management: Experienced with both SQL and NoSQL databases, including MySQL, PostgreSQL, MongoDB, and cloud database solutions.
+
+Security Implementation: Strong focus on security best practices, including secure authentication, data encryption, and compliance with government standards for digital transactions.
+
+Problem Solving: I excel at finding creative solutions to complex technical challenges, such as working around SMTP port restrictions in commercial web services and optimizing AI models for CPU-only execution.
+
+Team Collaboration: Experience working with international teams, including contributing to open-source projects with 50+ data scientists from around the world.
+
+Business Acumen: As a company founder, I understand both the technical and business sides of software development, enabling me to create solutions that are not only technically sound but also commercially viable.
+
+This document serves as a comprehensive overview of Luis Alexander Hernández Martínez's professional background, skills, and achievements as of 2025. For the most current information and detailed project case studies, please visit the portfolio website.
