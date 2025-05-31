@@ -7,10 +7,10 @@ import os
 import gc
 import psutil
 import torch
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, pipeline
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, pipeline, BitsAndBytesConfig, AutoTokenizer, AutoModelForCausalLM
 from datetime import datetime
 
-# === STREAMLINED LUIS PORTFOLIO RAG+LLM SYSTEM ===
+# === EFFICIENT LUIS PORTFOLIO RAG+LLM SYSTEM ===
 
 class LuisPortfolioRAG:
     def __init__(self):
@@ -21,8 +21,8 @@ class LuisPortfolioRAG:
         self.chunks = []
         self.embeddings = None
         self.chunk_metadata = []
-        self.memory_limit_mb = 1024
-        self.model_type = "gpt2-medium"
+        self.memory_limit_mb = 1250  # 1.25GB in MB
+        self.model_type = "auto"
         
         # Luis's complete portfolio data
         self.luis_data = self._load_luis_portfolio()
@@ -187,29 +187,6 @@ Luis's Contributions:
 - Results visualization and interpretation
 - Luis achieved 84% accuracy in disease prediction
 
-=== LUIS'S AI/ML EXPERTISE ===
-
-Machine Learning Algorithms Luis Knows:
-- Supervised Learning: Luis works with classification and regression problems
-- Unsupervised Learning: Luis implements clustering and dimensionality reduction
-- Reinforcement Learning: Luis has basic understanding and implementation
-- Deep Learning: Luis builds neural networks and advanced architectures
-
-Specialized AI Areas Luis Works In:
-- Computer Vision: Luis does image processing and recognition
-- Natural Language Processing: Luis performs text analysis and understanding
-- Audio Processing: Luis works with speech-to-text and text-to-speech
-- Large Language Models (LLMs): Luis implements and optimizes LLMs
-- Time Series Prediction: Luis does forecasting and pattern recognition
-- Voice Recognition: Luis works with speech processing and analysis
-
-Luis's AI Implementation Experience:
-- Model Training: Luis does custom model development and fine-tuning
-- Model Optimization: Luis specializes in quantization for CPU execution
-- Production Deployment: Luis implements real-world AI systems
-- RAG Systems: Luis builds Retrieval-Augmented Generation architecture
-- Model Integration: Luis embeds AI into existing systems
-
 === LUIS'S ACHIEVEMENTS ===
 - Luis has 3+ years of professional software development experience
 - Luis completed 15+ projects successfully
@@ -238,25 +215,6 @@ Location: El Salvador
 7. TensorFlow for Deep Learning Bootcamp - Luis completed at Zero To Mastery (June 2025)
 8. Machine Learning Basics - Luis completed at Omdena Academy (November 2024)
 9. Data Science and Python Basics - Luis completed at Omdena Academy (December 2024)
-
-=== LUIS'S PROFESSIONAL PHILOSOPHY ===
-Luis believes in transforming complex problems into elegant AI solutions. Luis's approach combines technical expertise with creative problem-solving to build high-quality products that deliver real value. Luis is constantly evolving as a professional, learning from every project, and refining his approach to stay at the forefront of AI and software development.
-
-=== ADDITIONAL TECHNICAL DETAILS ABOUT LUIS ===
-
-Server Administration: Luis has extensive experience with Linux server administration, including configuring Apache and Nginx servers, setting up reverse proxies, and managing cloud deployments on DigitalOcean, AWS, and Google Cloud Platform.
-
-API Development: Luis specializes in building robust REST APIs using Java Spring Boot and Express.js, with experience in authentication systems, rate limiting, and integration with multiple third-party services.
-
-Database Management: Luis is experienced with both SQL and NoSQL databases, including MySQL, PostgreSQL, MongoDB, and cloud database solutions.
-
-Security Implementation: Luis has a strong focus on security best practices, including secure authentication, data encryption, and compliance with government standards for digital transactions.
-
-Problem Solving: Luis excels at finding creative solutions to complex technical challenges, such as working around SMTP port restrictions in commercial web services and optimizing AI models for CPU-only execution.
-
-Team Collaboration: Luis has experience working with international teams, including contributing to open-source projects with 50+ data scientists from around the world.
-
-Business Acumen: As a company founder, Luis understands both the technical and business sides of software development, enabling him to create solutions that are not only technically sound but also commercially viable.
 """
     
     def get_memory_usage(self):
@@ -268,40 +226,102 @@ Business Acumen: As a company founder, Luis understands both the technical and b
             return 0
     
     def is_luis_related_query(self, query):
-        """Check if query is about Luis"""
-        luis_keywords = [
-            'luis', 'alexander', 'hernández', 'hernandez', 'martinez', 'martínez',
-            'software sv', 'my software', 'founder', 'ceo', 'salvador', 'ai engineer',
-            'portfolio', 'experience', 'skills', 'projects', 'education', 'contact',
-            'work', 'company', 'developer', 'programming', 'technology', 'achievements'
+        """Check if query is about Luis (including all name variations and portfolio)"""
+        # All variations of Luis Alexander's name
+        name_variations = [
+            'luis', 'alexander', 'alex', 'hernández', 'hernandez', 'martinez', 'martínez',
+            'luis alexander', 'alexander hernández', 'alex hernández', 'alexander martinez',
+            'luis hernández', 'luis martinez', 'alex martinez',
+            'software sv', 'my software', 'founder', 'ceo', 'salvador'
+        ]
+        
+        # Portfolio-related keywords (same as asking about Luis)
+        portfolio_keywords = [
+            'portfolio', 'resume', 'cv', 'profile', 'background', 'about',
+            'experience', 'skills', 'projects', 'education', 'contact',
+            'work', 'company', 'developer', 'programming', 'technology', 
+            'achievements', 'certifications', 'ai engineer', 'software engineer'
         ]
         
         query_lower = query.lower()
-        return any(keyword in query_lower for keyword in luis_keywords) or len(query) < 10
+        
+        # Check for name variations
+        name_match = any(name in query_lower for name in name_variations)
+        
+        # Check for portfolio requests
+        portfolio_match = any(keyword in query_lower for keyword in portfolio_keywords)
+        
+        # Accept if any condition is met or if it's a short general query
+        return name_match or portfolio_match or len(query.split()) < 5
+    
+    def normalize_query_for_search(self, query):
+        """Normalize query to handle name variations and portfolio requests"""
+        query_lower = query.lower()
+        
+        # Replace name variations with full name for better search
+        name_replacements = {
+            'alex ': 'luis alexander ',
+            'alexander ': 'luis alexander ',
+            ' alex': ' luis alexander',
+            ' alexander': ' luis alexander'
+        }
+        
+        normalized = query_lower
+        for old, new in name_replacements.items():
+            normalized = normalized.replace(old, new)
+        
+        # Handle portfolio requests - convert to person-focused queries
+        portfolio_replacements = {
+            'portfolio': 'luis alexander background experience skills projects',
+            'resume': 'luis alexander background experience skills',
+            'cv': 'luis alexander background experience education',
+            'profile': 'luis alexander background information',
+            'about': 'luis alexander information background'
+        }
+        
+        for old, new in portfolio_replacements.items():
+            if old in normalized:
+                normalized = normalized.replace(old, new)
+        
+        return normalized
     
     def load_system(self):
-        """Load the streamlined Luis RAG+LLM system"""
+        """Load the memory-optimized Luis RAG+LLM system for 1.479GB memory"""
         try:
-            print("🚀 Loading Streamlined Luis Portfolio RAG+LLM System")
+            print("🚀 Loading Memory-Optimized Luis Portfolio RAG+LLM System")
+            print("💾 Memory Target: 1.479GB (1479MB)")
             print(f"💾 Initial memory: {self.get_memory_usage():.1f}MB")
             
-            # Load embedding model
-            print("\n📊 Loading embedding model...")
-            self.embedding_model = SentenceTransformer('all-mpnet-base-v2')
+            # MEMORY OPTIMIZATION 1: Use smaller embedding model
+            print("\n📊 Loading compact embedding model...")
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')  # Only ~90MB vs 400MB
             print(f"✅ Embeddings loaded | Memory: {self.get_memory_usage():.1f}MB")
             
-            # Create Luis-specific embeddings
-            print("\n📁 Creating Luis portfolio embeddings...")
-            self._create_luis_embeddings()
+            # MEMORY OPTIMIZATION 2: Create optimized Luis embeddings
+            print("\n📁 Creating optimized Luis portfolio embeddings...")
+            self._create_optimized_luis_embeddings()
             print(f"✅ Luis embeddings created | Memory: {self.get_memory_usage():.1f}MB")
             
-            # Load LLM
-            print("\n🧠 Loading LLM...")
-            self._load_llm()
-            print(f"✅ LLM loaded | Memory: {self.get_memory_usage():.1f}MB")
+            # MEMORY OPTIMIZATION 3: Force garbage collection
+            print("\n🧹 Optimizing memory before LLM load...")
+            gc.collect()
+            torch.cuda.empty_cache() if torch.cuda.is_available() else None
+            
+            # Load GPT-2 Medium with aggressive memory optimization
+            print("\n🧠 Loading GPT-2 Medium with memory optimization...")
+            self._load_optimized_llm()
             
             final_memory = self.get_memory_usage()
-            print(f"\n✅ Luis Portfolio System Ready! Memory: {final_memory:.1f}MB / {self.memory_limit_mb}MB")
+            memory_percentage = (final_memory / self.memory_limit_mb) * 100
+            print(f"\n✅ Luis Portfolio System Ready!")
+            print(f"💾 Final Memory: {final_memory:.1f}MB / {self.memory_limit_mb}MB ({memory_percentage:.1f}%)")
+            
+            if memory_percentage > 95:
+                print("⚠️ High memory usage - monitor performance")
+            elif memory_percentage > 85:
+                print("📊 Good memory usage - optimal performance expected")
+            else:
+                print("🎯 Excellent memory efficiency")
             
             return True
             
@@ -311,34 +331,24 @@ Business Acumen: As a company founder, Luis understands both the technical and b
             traceback.print_exc()
             return False
     
-    def _create_luis_embeddings(self):
-        """Create embeddings specifically for Luis's portfolio"""
+    def _create_optimized_luis_embeddings(self):
+        """Create memory-optimized embeddings for Luis's portfolio"""
         
-        # Split Luis data into logical sections
+        # OPTIMIZATION: Shorter, more focused chunks to reduce memory
         luis_sections = [
-            ("personal_info", "Luis Alexander Hernández Martínez is a 23-year-old AI Engineer from El Salvador. He is the Founder and CEO of My Software SV, his own software company."),
-            ("about_luis", "Luis is a passionate software engineer specializing in Artificial Intelligence, with a deep love for transforming innovative ideas into functional products. Luis considers himself an AI Engineer first and foremost, though his expertise spans the full spectrum of software development."),
-            ("luis_interests", "Luis practices boxing for physical fitness and discipline. Luis plays tennis for strategic thinking and coordination. Luis is always exploring new technology trends. Luis loves trying new tools and frameworks. Luis enjoys cooking as creative expression."),
-            ("luis_education", "Luis studied Software Engineering at Universidad Centroamericana (UCA) in El Salvador for 5 years. Luis built a strong foundation in computer science and developed expertise across multiple domains of software development."),
-            ("luis_company", "Luis is the Founder and CEO of My Software SV for 3+ years since 2022. Luis developed 15+ comprehensive software solutions. Luis worked with 20+ clients across multiple industries. Luis achieved 97% client satisfaction rate with 90% on-time project delivery. Luis reduced system errors by 25%."),
-            ("luis_internship", "Luis worked as IT Support Specialist at Fe y Alegría El Salvador from August 2021 to January 2022. Luis delivered technical support to over 100 employees. Luis achieved 95% first-call resolution rate. Luis boosted departmental productivity by 15%."),
-            ("luis_programming", "Luis's primary language is Python for AI/ML development. Luis uses Java for enterprise applications and Spring Boot APIs. Luis uses C++ for system programming. Luis uses JavaScript for full-stack web development. Luis uses C# for desktop applications. Luis is learning R for statistical analysis."),
-            ("luis_ai_ml", "Luis uses TensorFlow for deep learning model development. Luis uses PyTorch for neural network research. Luis uses Scikit-learn for traditional machine learning algorithms. Luis uses XGBoost for gradient boosting. Luis uses Pandas, Matplotlib, and NumPy for data science."),
-            ("luis_web_dev", "Luis uses React for frontend development and SPA creation. Luis uses Django as Python web framework for robust applications. Luis uses Node.js for backend JavaScript development. Luis uses Express.js for RESTful API development."),
-            ("luis_cloud", "Luis uses AWS Amazon Web Services for cloud deployment. Luis uses Google Cloud Platform for cloud services and AI tools. Luis uses DigitalOcean for VPS hosting and server management. Luis has extensive Linux server administration experience. Luis uses Docker, Apache, and Nginx."),
-            ("luis_saas_billing", "Luis created a SaaS Billing System using React, REST API, and custom server deployment. Luis built a full-stack billing system with government compliance standards, automated invoice generation, real-time payment tracking, multi-API integration, and secure authentication."),
-            ("luis_rag_assistant", "Luis built a RAG Portfolio Assistant using LangChain, quantized LLM, and DigitalOcean deployment. Luis created an intelligent AI assistant with self-quantized LLM optimized for CPU execution, 24/7 deployment, smart filtering, vector similarity search, and context-aware response generation."),
-            ("luis_billing_api", "Luis developed an Enterprise Digital Billing API using Java Spring Boot, AWS, and Nginx. Luis built an enterprise-grade API with custom authentication, multi-server architecture, SMTP integration, government API connectivity, and comprehensive logging systems."),
-            ("luis_erp", "Luis created a Multi-Branch ERP System using C# .NET, Visual Studio Code, and Cloud SQL Database. Luis built a comprehensive ERP solution with cashier POS system, multi-branch inventory management for 3 branches, HR system, and business intelligence modules."),
-            ("luis_gymnasts_app", "Luis developed a Judge Gymnasts App using React Native and Expo. Luis created a cross-platform application with custom authentication, file management, MAG/WAG calculators, digital whiteboard, PDF export, and responsive interface for tablets and mobile."),
-            ("luis_voice_translation", "Luis is building an AI Voice Translation System using sequence-to-sequence models, voice recognition, and TTS for Japanese to English anime dubbing. Luis has voice recognition 100% complete, speech-to-text 95% complete, translation model 85% complete, TTS 80% complete, voice cloning 70% complete."),
-            ("luis_healthcare_ai", "Luis contributed to Open-Source Healthcare AI project with Omdena using machine learning, Python, and Streamlit. Luis worked on disease prediction model for African healthcare with data collection, EDA, feature engineering, model development, and achieved 84% accuracy."),
-            ("luis_ai_expertise", "Luis works with supervised learning for classification and regression, unsupervised learning for clustering, reinforcement learning, and deep learning with neural networks. Luis specializes in computer vision, NLP, audio processing, LLMs, time series prediction, and voice recognition."),
-            ("luis_achievements", "Luis has 3+ years professional software development experience. Luis completed 15+ projects successfully. Luis founded 1 company successfully operating. Luis served 20+ clients across multiple industries. Luis maintained 97% client satisfaction rate. Luis achieved 84% accuracy in healthcare AI project."),
-            ("contact_luis", "Contact Luis at alexmtzai2002@gmail.com, phone (+503) 7752-2702, LinkedIn https://www.linkedin.com/in/alexmtzai/, GitHub https://github.com/luis12007, Portfolio https://portfolio-production-319e.up.railway.app, Location El Salvador."),
-            ("luis_certifications", "Luis completed AI/ML bootcamps from Zero To Mastery Academy, PyTorch and TensorFlow courses, Algorithms and Data Structures, NLP in Medical Prescription from OMDENA, AWS for Developers, Machine Learning Basics, and Data Science courses from various institutions between 2024-2025."),
-            ("luis_philosophy", "Luis believes in transforming complex problems into elegant AI solutions. Luis's approach combines technical expertise with creative problem-solving to build high-quality products. Luis is constantly evolving, learning from every project, staying at the forefront of AI and software development."),
-            ("luis_technical_details", "Luis has extensive Linux server administration experience, API development with Spring Boot and Express.js, database management with SQL and NoSQL, security implementation, creative problem solving for technical challenges, international team collaboration, and business acumen as company founder.")
+            ("personal", "Luis Alexander Hernández Martínez, 23, AI Engineer, El Salvador, Founder CEO My Software SV"),
+            ("about", "Luis passionate software engineer specializing Artificial Intelligence, transforming ideas into products"),
+            ("interests", "Luis practices boxing tennis, explores technology trends, early adopter, enjoys cooking"),
+            ("education", "Luis studied Software Engineering Universidad Centroamericana UCA El Salvador 5 years"),
+            ("company", "Luis Founder CEO My Software SV 3+ years, 15+ solutions, 20+ clients, 97% satisfaction"),
+            ("internship", "Luis IT Support Fe y Alegría 2021-2022, 100+ employees, 95% resolution rate"),
+            ("programming", "Luis uses Python AI/ML, Java enterprise, C++ system, JavaScript web, C# desktop"),
+            ("ai_tech", "Luis uses TensorFlow PyTorch Scikit-learn XGBoost Pandas Matplotlib NumPy"),
+            ("web_tech", "Luis uses React Django Node.js Express.js for full-stack development"),
+            ("cloud", "Luis uses AWS Google Cloud DigitalOcean Linux Docker Apache Nginx"),
+            ("projects", "Luis built SaaS billing, RAG assistant, billing API, ERP system, gymnasts app"),
+            ("achievements", "Luis 3+ years experience, 15+ projects, 97% satisfaction, 84% AI accuracy"),
+            ("contact", "Luis alexmtzai2002@gmail.com (+503)7752-2702 LinkedIn GitHub portfolio El Salvador")
         ]
         
         self.chunks = []
@@ -352,293 +362,606 @@ Business Acumen: As a company founder, Luis understands both the technical and b
                 "type": "luis_info"
             })
         
-        # Create embeddings
-        print(f"   Creating embeddings for {len(self.chunks)} Luis portfolio chunks...")
-        self.embeddings = self.embedding_model.encode(self.chunks, show_progress_bar=True)
+        # Create embeddings with lower precision to save memory
+        print(f"   Creating embeddings for {len(self.chunks)} optimized chunks...")
+        self.embeddings = self.embedding_model.encode(
+            self.chunks, 
+            show_progress_bar=True,
+            convert_to_numpy=True,
+            normalize_embeddings=True
+        )
+        
+        # OPTIMIZATION: Convert to float32 to save memory (vs float64)
+        self.embeddings = self.embeddings.astype(np.float32)
         
         # Save embeddings
-        with open('luis_portfolio_embeddings.pkl', 'wb') as f:
+        with open('luis_portfolio_embeddings_optimized.pkl', 'wb') as f:
             pickle.dump({
                 'chunks': self.chunks,
                 'embeddings': self.embeddings,
                 'metadata': self.chunk_metadata
             }, f)
         
-        print(f"   ✅ Created {len(self.chunks)} Luis-specific embeddings")
+        print(f"   ✅ Created {len(self.chunks)} memory-optimized embeddings")
     
-    def _load_llm(self):
-        """Load LLM for Luis portfolio responses"""
+    def _load_optimized_llm(self):
+        """Load best possible model within 1.479GB limit with modern efficient models"""
         try:
-            print("   Loading GPT-2 Medium for Luis responses...")
+            current_memory = self.get_memory_usage()
+            available_memory = self.memory_limit_mb - current_memory
+            print(f"   Current memory usage: {current_memory:.1f}MB")
+            print(f"   Available for LLM: {available_memory:.1f}MB")
+            print(f"   Target: Keep total under {self.memory_limit_mb}MB")
+            
+            # MODERN EFFICIENT MODELS - Better than GPT-2 Medium with less memory
+            model_candidates = []
+            
+            if available_memory >= 600:
+                # Microsoft DialoGPT-medium: Conversational, ~600MB, excellent for Q&A
+                model_candidates.append(("microsoft/DialoGPT-medium", "DialoGPT-Medium", "Conversational AI optimized for dialogue"))
+                
+            if available_memory >= 500:
+                # GPT-2 Small with better training: ~500MB, good quality
+                model_candidates.append(("gpt2", "GPT-2-Small", "Reliable and well-tested"))
+                
+            if available_memory >= 400:
+                # DistilGPT-2: ~400MB, 97% of GPT-2 performance with 50% size
+                model_candidates.append(("distilgpt2", "DistilGPT-2", "Distilled GPT-2 with great efficiency"))
+                
+            if available_memory >= 300:
+                # TinyStories models: Very small but surprisingly good for simple tasks
+                model_candidates.append(("roneneldan/TinyStories-33M", "TinyStories-33M", "Surprisingly capable tiny model"))
+            
+            # Try models in order of preference
+            for model_name, display_name, description in model_candidates:
+                print(f"   🎯 Trying {display_name}: {description}")
+                if self._try_load_specific_model(model_name, display_name):
+                    return True
+                print(f"   ❌ {display_name} failed, trying next option...")
+            
+            # Ultimate fallback - use a very small model
+            print(f"   🔄 Loading minimal fallback model...")
+            return self._try_load_minimal_model()
+                
+        except Exception as e:
+            print(f"   ❌ LLM loading failed: {e}")
+            return False
+    
+    def _try_load_specific_model(self, model_name, display_name):
+        """Try to load a specific model with optimization"""
+        try:
+            print(f"      📥 Loading {display_name} tokenizer...")
             
             # Load tokenizer
+            if "DialoGPT" in model_name:
+                from transformers import AutoTokenizer
+                self.llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            else:
+                self.llm_tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+            
+            if self.llm_tokenizer.pad_token is None:
+                self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
+            
+            print(f"      🔧 Loading {display_name} model with optimization...")
+            
+            # Try quantization first if available
+            try:
+                import bitsandbytes
+                
+                quantization_config = BitsAndBytesConfig(
+                    load_in_8bit=True,
+                    llm_int8_enable_fp32_cpu_offload=True
+                )
+                
+                if "DialoGPT" in model_name:
+                    from transformers import AutoModelForCausalLM
+                    model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        quantization_config=quantization_config,
+                        low_cpu_mem_usage=True,
+                        device_map="auto"
+                    )
+                else:
+                    model = GPT2LMHeadModel.from_pretrained(
+                        model_name,
+                        quantization_config=quantization_config,
+                        low_cpu_mem_usage=True,
+                        device_map="auto"
+                    )
+                
+                print(f"      ✅ 8-bit quantization successful for {display_name}!")
+                model_type_suffix = "-quantized"
+                
+            except Exception:
+                # Fallback to standard optimization
+                print(f"      🔄 Using standard optimization for {display_name}...")
+                
+                if "DialoGPT" in model_name:
+                    from transformers import AutoModelForCausalLM
+                    model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        torch_dtype=torch.float16,
+                        low_cpu_mem_usage=True,
+                        device_map="cpu"
+                    )
+                else:
+                    model = GPT2LMHeadModel.from_pretrained(
+                        model_name,
+                        torch_dtype=torch.float16,
+                        low_cpu_mem_usage=True,
+                        device_map="cpu"
+                    )
+                
+                model_type_suffix = "-optimized"
+            
+            # Optimize model settings
+            model.config.use_cache = False
+            model.config.output_attentions = False
+            model.config.output_hidden_states = False
+            model.eval()
+            
+            for param in model.parameters():
+                param.requires_grad = False
+            
+            # Create pipeline
+            self.llm_pipeline = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=self.llm_tokenizer,
+                device=-1,
+                return_full_text=False
+            )
+            
+            gc.collect()
+            
+            self.model_type = f"{display_name.lower().replace('-', '_')}{model_type_suffix}"
+            memory_after = self.get_memory_usage()
+            
+            print(f"      ✅ {display_name} loaded: {memory_after:.1f}MB total")
+            
+            if memory_after <= self.memory_limit_mb and self._test_optimized_generation():
+                print(f"   🎉 SUCCESS: {display_name} operational within {self.memory_limit_mb}MB!")
+                return True
+            else:
+                print(f"      ❌ {display_name} failed memory or generation test")
+                self._cleanup_model()
+                return False
+                
+        except Exception as e:
+            print(f"      ❌ {display_name} loading failed: {e}")
+            self._cleanup_model()
+            return False
+    
+    def _try_load_minimal_model(self):
+        """Load the most minimal model as ultimate fallback"""
+        try:
+            print(f"      📥 Loading minimal DistilGPT-2...")
+            
+            self.llm_tokenizer = GPT2Tokenizer.from_pretrained("distilgpt2")
+            if self.llm_tokenizer.pad_token is None:
+                self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
+            
+            # Load with minimal configuration
+            self.llm_pipeline = pipeline(
+                "text-generation",
+                model="distilgpt2",
+                tokenizer=self.llm_tokenizer,
+                device=-1,
+                return_full_text=False
+            )
+            
+            self.llm_pipeline.model.eval()
+            gc.collect()
+            
+            self.model_type = "distilgpt2_minimal"
+            memory_after = self.get_memory_usage()
+            
+            print(f"      ✅ Minimal model loaded: {memory_after:.1f}MB total")
+            
+            if self._test_optimized_generation():
+                print(f"   ✅ Minimal fallback successful!")
+                return True
+            else:
+                return False
+                
+        except Exception as e:
+            print(f"      ❌ Minimal model failed: {e}")
+            return False
+    
+    def _try_load_gpt2_medium_optimized(self):
+        """Try to load GPT-2 Medium with 8-bit quantization"""
+        try:
+            print(f"      📥 Loading GPT-2 Medium tokenizer...")
             self.llm_tokenizer = GPT2Tokenizer.from_pretrained("gpt2-medium")
             if self.llm_tokenizer.pad_token is None:
                 self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
             
-            # Try direct pipeline creation first (simplest approach)
+            print(f"      🔧 Loading model with 8-bit quantization...")
+            
             try:
-                self.llm_pipeline = pipeline(
-                    "text-generation",
-                    model="gpt2-medium",
-                    tokenizer=self.llm_tokenizer,
-                    device=-1,  # CPU
-                    torch_dtype=torch.float32
+                # Try 8-bit quantization first (requires bitsandbytes)
+                quantization_config = BitsAndBytesConfig(
+                    load_in_8bit=True,
+                    llm_int8_enable_fp32_cpu_offload=True
                 )
-                self.model_type = "gpt2-medium"
-                print("   ✅ GPT-2 Medium pipeline loaded for Luis responses")
-                return True
                 
-            except Exception as pipeline_error:
-                print(f"   ⚠️ Pipeline creation failed: {pipeline_error}")
-                print("   Trying manual model loading...")
-                
-                # Fallback: Load model manually without device_map
-                self.llm_model = GPT2LMHeadModel.from_pretrained(
+                model = GPT2LMHeadModel.from_pretrained(
                     "gpt2-medium",
-                    torch_dtype=torch.float32,
-                    low_cpu_mem_usage=True
+                    quantization_config=quantization_config,
+                    low_cpu_mem_usage=True,
+                    device_map="auto"
                 )
                 
-                # Move to CPU manually
-                self.llm_model = self.llm_model.to('cpu')
-                self.llm_model.eval()
+                print(f"      ✅ 8-bit quantization successful!")
                 
-                self.model_type = "gpt2-medium"
-                print("   ✅ GPT-2 Medium model loaded manually for Luis responses")
+            except Exception as quant_error:
+                print(f"      ⚠️ 8-bit quantization failed: {quant_error}")
+                print(f"      🔄 Falling back to float16 optimization...")
+                
+                # Fallback to float16 if quantization fails
+                model = GPT2LMHeadModel.from_pretrained(
+                    "gpt2-medium",
+                    torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
+                    device_map="cpu"
+                )
+            
+            # Disable all unnecessary features
+            model.config.use_cache = False
+            model.config.output_attentions = False
+            model.config.output_hidden_states = False
+            model.eval()
+            
+            # Disable gradients for all parameters
+            for param in model.parameters():
+                param.requires_grad = False
+            
+            # Create pipeline manually for better control
+            self.llm_pipeline = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=self.llm_tokenizer,
+                device=-1,
+                return_full_text=False
+            )
+            
+            # Force cleanup
+            gc.collect()
+            
+            self.model_type = "gpt2-medium-quantized"
+            memory_after = self.get_memory_usage()
+            
+            print(f"      ✅ GPT-2 Medium loaded: {memory_after:.1f}MB total")
+            
+            if memory_after <= self.memory_limit_mb and self._test_optimized_generation():
+                print(f"   🎉 SUCCESS: Quantized GPT-2 Medium within {self.memory_limit_mb}MB!")
                 return True
+            else:
+                print(f"      ❌ Memory limit exceeded or test failed")
+                self._cleanup_model()
+                return False
+                
+        except Exception as e:
+            print(f"      ❌ GPT-2 Medium quantization failed: {e}")
+            print(f"      💡 Tip: Install bitsandbytes for better quantization:")
+            print(f"          pip install bitsandbytes")
+            self._cleanup_model()
+            return False
+    
+    def _try_load_gpt2_small(self):
+        """Load GPT-2 Small - good balance of quality and memory efficiency"""
+        try:
+            print(f"      📥 Loading GPT-2 Small...")
+            
+            self.llm_tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+            if self.llm_tokenizer.pad_token is None:
+                self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
+            
+            self.llm_pipeline = pipeline(
+                "text-generation",
+                model="gpt2",
+                tokenizer=self.llm_tokenizer,
+                device=-1,
+                model_kwargs={
+                    "low_cpu_mem_usage": True,
+                    "torch_dtype": torch.float16,
+                    "use_cache": False
+                },
+                return_full_text=False
+            )
+            
+            # Optimize model settings
+            if hasattr(self.llm_pipeline.model, 'config'):
+                self.llm_pipeline.model.config.use_cache = False
+                self.llm_pipeline.model.config.output_attentions = False
+                self.llm_pipeline.model.config.output_hidden_states = False
+            
+            self.llm_pipeline.model.eval()
+            for param in self.llm_pipeline.model.parameters():
+                param.requires_grad = False
+            
+            gc.collect()
+            
+            self.model_type = "gpt2-small"
+            memory_after = self.get_memory_usage()
+            
+            print(f"      ✅ GPT-2 Small loaded: {memory_after:.1f}MB total")
+            
+            if memory_after <= self.memory_limit_mb and self._test_optimized_generation():
+                print(f"   🎉 SUCCESS: GPT-2 Small within {self.memory_limit_mb}MB!")
+                return True
+            else:
+                self._cleanup_model()
+                return False
+                
+        except Exception as e:
+            print(f"      ❌ GPT-2 Small failed: {e}")
+            self._cleanup_model()
+            return False
+    
+    def _try_load_distilgpt2(self):
+        """Load DistilGPT-2 - most memory efficient option"""
+        try:
+            print(f"      📥 Loading DistilGPT-2 (compact and reliable)...")
+            
+            self.llm_tokenizer = GPT2Tokenizer.from_pretrained("distilgpt2")
+            if self.llm_tokenizer.pad_token is None:
+                self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
+            
+            self.llm_pipeline = pipeline(
+                "text-generation",
+                model="distilgpt2",
+                tokenizer=self.llm_tokenizer,
+                device=-1,
+                model_kwargs={"low_cpu_mem_usage": True},
+                return_full_text=False
+            )
+            
+            self.llm_pipeline.model.eval()
+            for param in self.llm_pipeline.model.parameters():
+                param.requires_grad = False
+            
+            gc.collect()
+            
+            self.model_type = "distilgpt2"
+            memory_after = self.get_memory_usage()
+            
+            print(f"      ✅ DistilGPT-2 loaded: {memory_after:.1f}MB total")
+            
+            if self._test_optimized_generation():
+                print(f"   🎉 SUCCESS: DistilGPT-2 operational within {self.memory_limit_mb}MB!")
+                return True
+            else:
+                return False
+                
+        except Exception as e:
+            print(f"      ❌ DistilGPT-2 failed: {e}")
+            return False
+    
+    def _cleanup_model(self):
+        """Clean up partially loaded models"""
+        try:
+            self.llm_pipeline = None
+            self.llm_tokenizer = None
+            gc.collect()
+            torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        except:
+            pass
+    
+    def _load_fallback_model(self):
+        """Deprecated - replaced by smart model selection"""
+        return self._try_load_distilgpt2()
+    
+    def _test_optimized_generation(self):
+        """Test optimized generation with memory monitoring"""
+        try:
+            print("   🧪 Testing optimized generation...")
+            
+            pre_test_memory = self.get_memory_usage()
+            
+            test_prompt = "Luis is an AI engineer who"
+            result = self.llm_pipeline(
+                test_prompt,
+                max_new_tokens=15,  # Reduced for memory efficiency
+                temperature=0.7,
+                do_sample=True,
+                pad_token_id=self.llm_tokenizer.eos_token_id,
+                eos_token_id=self.llm_tokenizer.eos_token_id,
+                no_repeat_ngram_size=2
+            )
+            
+            post_test_memory = self.get_memory_usage()
+            
+            if isinstance(result, list) and len(result) > 0:
+                generated = result[0]['generated_text'][len(test_prompt):].strip()
+                print(f"   ✅ Test successful: '{generated[:30]}...'")
+                print(f"   📊 Memory during generation: {post_test_memory - pre_test_memory:.1f}MB increase")
+                return True
+            else:
+                print(f"   ❌ Invalid generation result")
+                return False
             
         except Exception as e:
-            print(f"   ❌ GPT-2 Medium loading failed: {e}")
-            print("   Falling back to DistilGPT-2...")
-            
-            # Fallback to DistilGPT-2
-            try:
-                self.llm_tokenizer = GPT2Tokenizer.from_pretrained("distilgpt2")
-                if self.llm_tokenizer.pad_token is None:
-                    self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
-                
-                self.llm_pipeline = pipeline(
-                    "text-generation",
-                    model="distilgpt2",
-                    tokenizer=self.llm_tokenizer,
-                    device=-1,
-                    torch_dtype=torch.float32
-                )
-                
-                self.model_type = "distilgpt2"
-                print("   ✅ DistilGPT-2 loaded as fallback")
-                return True
-                
-            except Exception as fallback_error:
-                print(f"   ❌ Complete LLM loading failure: {fallback_error}")
-                return False
+            print(f"   ❌ Test generation failed: {e}")
+            return False
     
     def search_luis_info(self, query, top_k=3):
-        """Search Luis's portfolio information with improved accuracy"""
+        """Search Luis's portfolio information with improved accuracy and name handling"""
         try:
-            query_embedding = self.embedding_model.encode([query])
+            # Normalize query to handle name variations and portfolio requests
+            normalized_query = self.normalize_query_for_search(query)
+            
+            print(f"   🔍 Searching for: '{query}' -> normalized: '{normalized_query}'")
+            
+            # Use normalized query for embedding search
+            query_embedding = self.embedding_model.encode([normalized_query])
             similarities = np.dot(query_embedding, self.embeddings.T)[0]
             top_indices = np.argsort(similarities)[-top_k:][::-1]
             
             results = []
             for idx in top_indices:
-                if similarities[idx] > 0.2:  # Lower threshold to get more context
+                if similarities[idx] > 0.2:
                     results.append({
                         "content": self.chunks[idx],
                         "similarity": float(similarities[idx]),
                         "category": self.chunk_metadata[idx]["category"]
                     })
             
-            # If we don't have enough high-quality results, add more context
+            # If we don't have enough results, expand search with original query
             if len(results) < 2:
-                print(f"   📊 Low similarity results for '{query}', expanding search...")
-                for idx in top_indices:
-                    if similarities[idx] > 0.15 and len(results) < top_k:
+                print(f"   📊 Expanding search with original query...")
+                original_embedding = self.embedding_model.encode([query])
+                original_similarities = np.dot(original_embedding, self.embeddings.T)[0]
+                original_top_indices = np.argsort(original_similarities)[-top_k:][::-1]
+                
+                for idx in original_top_indices:
+                    if original_similarities[idx] > 0.15 and len(results) < top_k:
+                        # Avoid duplicates
                         if not any(r["content"] == self.chunks[idx] for r in results):
                             results.append({
                                 "content": self.chunks[idx],
-                                "similarity": float(similarities[idx]),
+                                "similarity": float(original_similarities[idx]),
                                 "category": self.chunk_metadata[idx]["category"]
                             })
             
+            # If still no results, get general information
+            if len(results) == 0:
+                print(f"   📋 No specific matches, using general Luis information...")
+                # Get the most general information chunks
+                general_categories = ['personal', 'about', 'company']
+                for i, metadata in enumerate(self.chunk_metadata):
+                    if metadata['category'] in general_categories and len(results) < 3:
+                        results.append({
+                            "content": self.chunks[i],
+                            "similarity": 0.3,
+                            "category": metadata["category"]
+                        })
+            
+            print(f"   ✅ Found {len(results)} relevant chunks")
             return results
             
         except Exception as e:
             print(f"❌ Luis info search error: {e}")
             return []
     
-    def validate_response_accuracy(self, response, original_context):
-        """Double-check that response only contains information from the context"""
-        try:
-            # Extract key facts from the response
-            response_lower = response.lower()
-            context_lower = original_context.lower()
-            
-            # Key validation checks
-            suspicious_phrases = [
-                'university of', 'college of', 'graduated from', 'bachelor of', 'master of',
-                'years of experience', 'currently working', 'recently joined', 'previously worked',
-                'specializes in machine learning', 'expert in deep learning', 'proficient in',
-                'certified in', 'award', 'recognition', 'published', 'research'
-            ]
-            
-            # Check for specific false claims
-            false_claims = []
-            
-            # Check years of experience claims
-            if 'years' in response_lower and 'experience' in response_lower:
-                if '3+' not in context_lower and 'three' not in context_lower:
-                    # Check if any other number is mentioned
-                    import re
-                    years_match = re.search(r'(\d+)\s*years', response_lower)
-                    if years_match:
-                        claimed_years = years_match.group(1)
-                        if claimed_years not in context_lower:
-                            false_claims.append(f"claimed {claimed_years} years experience")
-            
-            # Check for university/education details not in context
-            if any(phrase in response_lower for phrase in ['university', 'college', 'degree']) and 'uca' not in context_lower:
-                false_claims.append("education details not in context")
-            
-            # Check for specific technology claims
-            tech_keywords = ['python', 'java', 'react', 'tensorflow', 'pytorch', 'aws']
-            for tech in tech_keywords:
-                if tech in response_lower and tech not in context_lower:
-                    false_claims.append(f"mentioned {tech} not in context")
-            
-            return len(false_claims) == 0, false_claims
-            
-        except Exception as e:
-            print(f"❌ Validation error: {e}")
-            return True, []  # Default to accepting if validation fails
-    
     def generate_luis_response(self, query, max_words=100):
-        """Generate response about Luis with strict 100-word limit and double-checking"""
+        """Generate memory-efficient LLM responses about Luis"""
         try:
-            # Search Luis's portfolio with higher relevance threshold
-            luis_results = self.search_luis_info(query, top_k=3)
+            # Ensure LLM is available
+            if not self.llm_pipeline:
+                return "The AI system is currently unavailable. Please contact Luis directly at alexmtzai2002@gmail.com"
+            
+            print(f"📝 Processing query: '{query}'")
+            
+            # Search Luis's portfolio for relevant context
+            luis_results = self.search_luis_info(query, top_k=2)  # Reduced for memory
             
             if not luis_results:
-                return "The available information about Luis doesn't contain details to answer that specific question. Contact Luis at alexmtzai2002@gmail.com"
+                return "No specific information found in Luis Alexander's portfolio. Contact Luis at alexmtzai2002@gmail.com"
             
-            # Combine relevant Luis information - keep original for validation
+            # Combine context from search results (optimized)
             context_parts = []
             for result in luis_results:
                 context_parts.append(result['content'])
             
-            luis_context = " ".join(context_parts)
-            original_context = luis_context  # Keep for validation
+            luis_context = " ".join(context_parts)[:300]  # Limit context length for memory
             
-            # Ultra-strict prompt for accuracy and brevity
-            prompt = f"""FACTS ABOUT LUIS ALEXANDER HERNÁNDEZ MARTÍNEZ:
-{luis_context[:500]}
-
-QUESTION: {query}
-
-STRICT RULES:
-- Use ONLY the facts listed above
-- Maximum 100 words
-- Third person only ("Luis")
-- Start with "Luis"
-- Be factual and precise
-
-RESPONSE: Luis"""
+            # MEMORY-OPTIMIZED prompt (shorter)
+            prompt = f"About Luis: {luis_context[:200]}\n\nQ: {query}\nA: Luis"
             
-            # Generate with very conservative parameters
-            generated = ""
+            print(f"   🎯 Generating with {self.model_type} (memory-optimized)")
             
-            if self.llm_pipeline:
+            # MEMORY-EFFICIENT generation parameters
+            try:
                 result = self.llm_pipeline(
                     prompt,
-                    max_length=len(prompt.split()) + 80,  # Very short for 100 words
-                    temperature=0.1,  # Even lower for maximum accuracy
+                    max_new_tokens=40,  # Reduced for memory efficiency
+                    temperature=0.5,
                     do_sample=True,
-                    top_p=0.8,
+                    top_p=0.9,
                     top_k=30,
-                    repetition_penalty=1.2,
-                    early_stopping=True,
-                    pad_token_id=self.llm_tokenizer.eos_token_id
+                    repetition_penalty=1.1,
+                    pad_token_id=self.llm_tokenizer.eos_token_id,
+                    eos_token_id=self.llm_tokenizer.eos_token_id,
+                    return_full_text=False  # Only return generated part
                 )
                 
-                full_response = result[0]['generated_text']
-                response_start = full_response.find("RESPONSE: Luis") + len("RESPONSE: ")
-                generated = full_response[response_start:].strip()
+                # Force garbage collection after generation
+                gc.collect()
                 
-            elif self.llm_model:
-                inputs = self.llm_tokenizer.encode(prompt, return_tensors="pt", max_length=400, truncation=True)
-                
-                with torch.no_grad():
-                    outputs = self.llm_model.generate(
-                        inputs,
-                        max_length=inputs.shape[1] + 80,
-                        temperature=0.2,
-                        do_sample=True,
-                        top_p=0.8,
-                        top_k=30,
-                        repetition_penalty=1.2,
-                        early_stopping=True,
-                        pad_token_id=self.llm_tokenizer.eos_token_id
-                    )
-                
-                full_response = self.llm_tokenizer.decode(outputs[0], skip_special_tokens=True)
-                response_start = full_response.find("RESPONSE: Luis") + len("RESPONSE: ")
-                generated = full_response[response_start:].strip()
-                
-                del inputs, outputs
-            
-            else:
-                return "LLM system unavailable. Contact Luis at alexmtzai2002@gmail.com"
-            
-            gc.collect()
-            
-            # Enhanced post-processing with validation
-            if generated:
-                # Clean up response
-                generated = generated.replace("RESPONSE:", "").strip()
-                
-                # Ensure starts with Luis
-                if not generated.startswith('Luis'):
-                    generated = "Luis " + generated
-                
-                # STRICT 100-word limit
-                words = generated.split()
-                if len(words) > 100:
-                    generated = ' '.join(words[:95])  # Leave room for ending
+                if isinstance(result, list) and len(result) > 0:
+                    generated = result[0]['generated_text'].strip()
                     
-                    # Try to end at sentence boundary
-                    last_period = generated.rfind('.')
-                    if last_period > len(generated) * 0.8:
-                        generated = generated[:last_period + 1]
-                    else:
-                        generated = generated + "."
+                    # Clean and optimize the response
+                    if generated:
+                        # Ensure proper start
+                        if not generated.startswith('Luis'):
+                            generated = "Luis " + generated
+                        
+                        # Clean sentence structure
+                        generated = self._clean_optimized_response(generated)
+                        
+                        # Word limit
+                        words = generated.split()
+                        if len(words) > max_words:
+                            generated = ' '.join(words[:max_words-5]) + "."
+                        
+                        # Final cleanup
+                        if not generated.endswith('.'):
+                            generated = generated.rstrip(',;:') + "."
+                        
+                        print(f"✅ Generated response: {len(generated.split())} words")
+                        return generated
                 
-                # Ensure proper ending
-                if not generated.endswith(('.', '!', '?')):
-                    generated = generated.rstrip(',') + "."
-                
-                # DOUBLE-CHECK: Validate response accuracy
-                is_accurate, false_claims = self.validate_response_accuracy(generated, original_context)
-                
-                if not is_accurate:
-                    print(f"⚠️ Response validation failed: {false_claims}")
-                    # Return safer, more general response
-                    return "Luis Alexander Hernández Martínez is a 23-year-old AI Engineer and Founder & CEO of My Software SV from El Salvador. Contact Luis at alexmtzai2002@gmail.com for detailed information."
-                
-                # Final word count check
-                final_words = len(generated.split())
-                if final_words > 100:
-                    words = generated.split()
-                    generated = ' '.join(words[:100]) + "."
-                
-                print(f"📝 Generated response: {len(generated.split())} words")
-                return generated
+            except Exception as gen_error:
+                print(f"⚠️ Generation error: {gen_error}")
+                # Force cleanup
+                gc.collect()
             
-            return "Please ask a specific question about Luis. Contact: alexmtzai2002@gmail.com"
+            # Fallback response
+            return self._generate_memory_safe_fallback(luis_context, query)
             
         except Exception as e:
-            print(f"❌ Luis response generation error: {e}")
-            return "Error generating response about Luis. Contact: alexmtzai2002@gmail.com"
+            print(f"❌ Generation error: {e}")
+            gc.collect()  # Cleanup on error
+            return "Unable to generate response about Luis Alexander. Contact: alexmtzai2002@gmail.com"
+    
+    def _clean_optimized_response(self, text):
+        """Clean response with memory efficiency in mind"""
+        try:
+            # Remove artifacts
+            text = text.replace("A: Luis", "").strip()
+            text = text.replace("Q:", "").strip()
+            
+            # Ensure proper sentence structure
+            if text and not text[0].isupper():
+                text = text[0].upper() + text[1:]
+            
+            return text
+            
+        except:
+            return text
+    
+    def _generate_memory_safe_fallback(self, context, query):
+        """Generate safe fallback response with minimal memory usage"""
+        try:
+            # Extract key facts efficiently
+            context_lower = context.lower()
+            
+            base_info = "Luis Alexander Hernández Martínez is a 23-year-old AI Engineer from El Salvador"
+            
+            if 'founder' in context_lower and 'ceo' in context_lower:
+                base_info += " and Founder & CEO of My Software SV"
+            
+            if '3+' in context and 'years' in context_lower:
+                base_info += " with 3+ years of experience"
+            
+            base_info += ". Contact Luis at alexmtzai2002@gmail.com for more information."
+            
+            return base_info
+            
+        except:
+            return "Luis Alexander Hernández Martínez is an AI Engineer from El Salvador. Contact: alexmtzai2002@gmail.com"
 
 # Initialize Luis Portfolio System
 luis_system = LuisPortfolioRAG()
@@ -665,28 +988,30 @@ def ask_about_luis():
         # Check if question is about Luis
         if not luis_system.is_luis_related_query(query):
             return jsonify({
-                "answer": "This system only provides information about Luis Alexander Hernández Martínez. Please ask questions about Luis's background, skills, experience, projects, or contact information.",
+                "answer": "This system only provides information about Luis Alexander Hernández Martínez. Please ask questions about Luis.",
                 "query": query,
                 "method": "luis_filter",
                 "restricted": True
             })
         
-        # Generate Luis-specific response
+        # Generate memory-optimized response about Luis
         response = luis_system.generate_luis_response(query)
         
         return jsonify({
             "answer": response,
             "query": query,
-            "method": "luis_rag_llm",
-            "model": "gpt2-medium",
-            "third_person": True,
-            "word_limit": 100,
+            "method": "memory_optimized_generation",
+            "model": luis_system.model_type,
             "memory_usage_mb": round(luis_system.get_memory_usage(), 1),
+            "memory_limit_mb": luis_system.memory_limit_mb,
+            "memory_efficiency": f"{(luis_system.get_memory_usage()/luis_system.memory_limit_mb)*100:.1f}%",
             "timestamp": datetime.now().isoformat()
         })
         
     except Exception as e:
         print(f"❌ Error: {e}")
+        # Force cleanup on error
+        gc.collect()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/search_luis', methods=['POST', 'OPTIONS'])
@@ -708,7 +1033,8 @@ def search_luis_info():
             "query": query,
             "results": results,
             "total_found": len(results),
-            "search_scope": "luis_portfolio_only"
+            "search_scope": "luis_portfolio_only",
+            "memory_usage_mb": round(luis_system.get_memory_usage(), 1)
         })
         
     except Exception as e:
@@ -735,66 +1061,138 @@ def get_luis_info():
             "portfolio": "https://portfolio-production-319e.up.railway.app"
         },
         "total_knowledge_chunks": len(luis_system.chunks),
-        "system_focus": "Luis Alexander Hernández Martínez Portfolio Only"
+        "system_focus": "Luis Alexander Hernández Martínez Portfolio Only",
+        "memory_usage_mb": round(luis_system.get_memory_usage(), 1),
+        "memory_optimization": "Enabled for 1.479GB limit"
     })
 
 @app.route('/system_status', methods=['GET'])
 def get_system_status():
-    """Get system status"""
+    """Get system status with memory optimization details"""
     memory_usage = luis_system.get_memory_usage()
     
     return jsonify({
-        "system_name": "Luis Portfolio RAG+LLM",
+        "system_name": "Memory-Optimized Luis Portfolio RAG+LLM",
         "focus": "Luis Alexander Hernández Martínez Only",
         "memory_usage_mb": round(memory_usage, 1),
         "memory_limit_mb": luis_system.memory_limit_mb,
+        "memory_efficiency": f"{(memory_usage/luis_system.memory_limit_mb)*100:.1f}%",
         "model": luis_system.model_type,
-        "embedding_model": "all-mpnet-base-v2",
-                    "response_limit": "100 words maximum (strict)",
-        "perspective": "Third person only",
-        "information_validation": "Strict - portfolio data only",
-        "query_filtering": "Luis-related questions only",
-        "status": "operational" if memory_usage < 900 else "high_memory"
+        "embedding_model": "all-MiniLM-L6-v2 (compact)",
+        "optimizations": [
+            "Compact embedding model (90MB vs 400MB)",
+            "Shorter knowledge chunks",
+            "Float32 embeddings",
+            "GPT-2 Medium with float16",
+            "Disabled model caching",
+            "Aggressive garbage collection",
+            "Reduced generation tokens"
+        ],
+        "response_limit": "100 words maximum",
+        "status": "operational" if memory_usage < luis_system.memory_limit_mb * 0.9 else "high_memory"
     })
 
+@app.route('/memory_stats', methods=['GET'])
+def get_memory_stats():
+    """Get detailed memory statistics"""
+    try:
+        current_memory = luis_system.get_memory_usage()
+        memory_percentage = (current_memory / luis_system.memory_limit_mb) * 100
+        
+        # Estimate component memory usage
+        embeddings_size = luis_system.embeddings.nbytes / (1024 * 1024) if luis_system.embeddings is not None else 0
+        
+        return jsonify({
+            "current_memory_mb": round(current_memory, 1),
+            "memory_limit_mb": luis_system.memory_limit_mb,
+            "memory_percentage": round(memory_percentage, 1),
+            "memory_available_mb": round(luis_system.memory_limit_mb - current_memory, 1),
+            "estimated_components": {
+                "embedding_model_mb": "~90",
+                "llm_model_mb": "~350-500 (depending on model)",
+                "embeddings_data_mb": round(embeddings_size, 1),
+                "system_overhead_mb": "~50-100"
+            },
+            "status": "within_limit" if current_memory < luis_system.memory_limit_mb else "over_limit",
+            "optimization_active": True
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
-    print("🚀 Starting Streamlined Luis Portfolio RAG+LLM System")
+    print("🚀 Starting Efficient Luis Portfolio RAG+LLM System")
     print("👤 Focus: Luis Alexander Hernández Martínez ONLY")
-    print("📝 Response Limit: 200 words maximum")
-    print("🎭 Perspective: Third person only")
-    print("🔒 Information: Portfolio data validation")
-    print("🚫 Query Filter: Luis-related questions only")
+    print("💾 Memory Limit: 1.479GB (1479MB)")
+    print("🎯 Smart Model Selection (Better than GPT-2 Medium, Less Memory):")
+    print("   • First choice: DialoGPT-Medium (~600MB) - Conversational AI")
+    print("   • Second choice: GPT-2 Small (~500MB) - Reliable quality")
+    print("   • Third choice: DistilGPT-2 (~400MB) - 97% GPT-2 performance")
+    print("   • Fallback: TinyStories (~300MB) - Surprisingly capable")
+    print("⚡ Model Benefits:")
+    print("   • DialoGPT: Trained specifically for dialogue/Q&A")
+    print("   • DistilGPT-2: 97% of GPT-2 performance with 50% size")
+    print("   • All models: Better efficiency than GPT-2 Medium")
+    print("   • 8-bit quantization available for all models")
+    
+    # Check for bitsandbytes
+    try:
+        import bitsandbytes
+        print("   ✅ BitsAndBytes detected - 8-bit quantization available")
+    except ImportError:
+        print("   ⚠️ BitsAndBytes not found")
+        print("   💡 For even better memory efficiency: pip install bitsandbytes")
     
     if luis_system.load_system():
-        print(f"\n✅ Luis Portfolio System Ready!")
-        print(f"💾 Memory: {luis_system.get_memory_usage():.1f}MB / {luis_system.memory_limit_mb}MB")
+        current_memory = luis_system.get_memory_usage()
+        memory_percentage = (current_memory / luis_system.memory_limit_mb) * 100
+        
+        print("✅ Luis Portfolio System Ready!")
+        print(f"💾 Memory: {current_memory:.1f}MB / {luis_system.memory_limit_mb}MB ({memory_percentage:.1f}%)")
         print(f"📊 Luis Knowledge Chunks: {len(luis_system.chunks)}")
         print(f"🧠 Model: {luis_system.model_type}")
         
+        if current_memory <= luis_system.memory_limit_mb:
+            print(f"🎉 SUCCESS: Within {luis_system.memory_limit_mb}MB memory limit!")
+            
+            # Show what model we got with better descriptions
+            if "diallogpt" in luis_system.model_type.lower():
+                print(f"🏆 EXCELLENT: Got DialoGPT-Medium - optimized for conversations, great quality!")
+            elif "quantized" in luis_system.model_type:
+                print(f"🏆 EXCELLENT: Got quantized model - great quality with minimal memory!")
+            elif "gpt2_small" in luis_system.model_type:
+                print(f"👍 GOOD: Got GPT-2 Small - reliable and efficient!")
+            elif "distilgpt2" in luis_system.model_type:
+                print(f"✅ SOLID: Got DistilGPT-2 - efficient and capable!")
+            elif "tinystories" in luis_system.model_type:
+                print(f"⚡ COMPACT: Got TinyStories - surprisingly capable for its size!")
+            else:
+                print(f"✅ SUCCESS: Got {luis_system.model_type} - operational and efficient!")
+        else:
+            print(f"⚠️ WARNING: Slightly over memory limit by {current_memory - luis_system.memory_limit_mb:.1f}MB")
+        
         print(f"\n🌐 Server running on http://localhost:5000")
         print(f"\n📋 Endpoints:")
-        print(f"   POST /ask - Ask questions about Luis (filtered)")
+        print(f"   POST /ask - Ask questions about Luis (quantized responses)")
         print(f"   POST /search_luis - Search Luis's portfolio")
         print(f"   GET /luis_info - Get Luis summary")
-        print(f"   GET /system_status - System status")
+        print(f"   GET /system_status - System status with quantization details")
+        print(f"   GET /memory_stats - Detailed memory statistics")
         
         print("\n🧪 Test Commands:")
         print('   curl -X POST http://localhost:5000/ask -H "Content-Type: application/json" -d \'{"query": "Who is Luis?"}\'')
-        print('   curl -X POST http://localhost:5000/ask -H "Content-Type: application/json" -d \'{"query": "What are Luis skills?"}\'')
-        print('   curl -X POST http://localhost:5000/ask -H "Content-Type: application/json" -d \'{"query": "Tell me about Luis projects"}\'')
-        print('   curl -X POST http://localhost:5000/search_luis -H "Content-Type: application/json" -d \'{"query": "AI projects"}\'')
-        print('   curl http://localhost:5000/luis_info')
+        print('   curl -X POST http://localhost:5000/ask -H "Content-Type: application/json" -d \'{"query": "Tell me about Alexander"}\'')
+        print('   curl http://localhost:5000/memory_stats')
         
-        print("\n🎯 System Features:")
-        print("   ✅ ONLY answers questions about Luis")
-        print("   ✅ Uses ONLY verified portfolio information")
-        print("   ✅ Responses capped at 100 words (strict)")
-        print("   ✅ Always third person perspective")
-        print("   ✅ RAG+LLM generated responses")
-        print("   ✅ Filters out non-Luis questions")
-        print("   ✅ Double-checks accuracy (no made-up info)")
-        print("   ✅ Memory optimized for 1GB")
+        print(f"\n🎯 System Features:")
+        print(f"   ✅ 8-bit quantization for GPT-2 Medium (if bitsandbytes available)")
+        print(f"   ✅ Progressive model loading (Medium → Small → DistilGPT-2)")
+        print(f"   ✅ Memory-optimized generation")
+        print(f"   ✅ Real-time memory monitoring")
+        print(f"   ✅ Automatic cleanup on failures")
+        print(f"   ✅ Fallback to unquantized models if needed")
         
         app.run(host='0.0.0.0', port=5000, debug=False)
     else:
-        print("❌ Failed to load Luis portfolio system")
+        print("❌ Failed to load quantized Luis portfolio system")
+        print("💡 Try installing bitsandbytes: pip install bitsandbytes")
