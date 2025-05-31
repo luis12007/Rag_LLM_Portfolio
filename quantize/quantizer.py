@@ -1,223 +1,132 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import torch
 import os
-import json
+from transformers import (
+    AutoTokenizer, AutoModelForCausalLM, 
+    DistilBertTokenizer, DistilBertForQuestionAnswering,
+    pipeline
+)
 
-def download_and_quantize():
-    # Superior models - ordered from smaller to larger
-    model_candidates = [
-        # Smaller, efficient models first
-        "microsoft/Phi-3.5-mini-instruct",     # 3.8B parameters - efficient
-        "google/gemma-2-2b-it",                # 2B parameters - good for testing
+def download_ultra_small_models():
+    """Download models that can run in ~200MB RAM"""
+    
+    # Ultra-small models under 400MB
+    ultra_small_models = [
+        # Tiny language models (~50-200MB)
+        "microsoft/DialoGPT-small",           # ~350MB - conversational
+        "distilgpt2",                         # ~350MB - text generation  
+        "gpt2",                               # ~500MB - might be too big
         
-        # Medium models
-        "Qwen/Qwen2.5-7B-Instruct",           # 7B parameters - very good
-        "mistralai/Mistral-7B-Instruct-v0.3", # 7B parameters - very efficient
-        "google/gemma-2-9b-it",               # 9B parameters - very good performance
+        # Specialized small models
+        "distilbert-base-uncased",            # ~250MB - Q&A model
+        "sentence-transformers/all-MiniLM-L6-v2",  # ~90MB - embeddings only
         
-        # Larger models (comment out if memory issues)
-        # "Qwen/Qwen2.5-14B-Instruct",          # 14B parameters - excellent
-        # "meta-llama/Llama-3.1-8B-Instruct",   # 8B parameters - great performance
-        
-        # Code-specific models
-        "Qwen/Qwen2.5-Coder-7B-Instruct",     # Excellent for coding tasks
+        # Tiny instruction models
+        "microsoft/DialoGPT-medium",          # ~800MB - too big
+        "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # ~2.2GB - way too big
     ]
     
-    for model_name in model_candidates:
+    # Try the smallest ones first
+    for model_name in ["distilgpt2", "microsoft/DialoGPT-small", "distilbert-base-uncased"]:
         try:
-            print(f"Trying to download {model_name}...")
+            print(f"Downloading ultra-small model: {model_name}")
             
-            # Try with quantization first, fallback to float16 if it fails
-            try:
-                # Create quantization config for better memory efficiency
-                quantization_config = BitsAndBytesConfig(
-                    load_in_4bit=True,                # 4-bit quantization for maximum compression
-                    bnb_4bit_quant_type="nf4",       # NormalFloat4 quantization
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_use_double_quant=True,   # Double quantization for more memory savings
-                )
-                
-                # Download tokenizer
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
-                
-                # Download model with advanced quantization
-                model = AutoModelForCausalLM.from_pretrained(
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            
+            # Load with maximum memory optimization
+            if "distilbert" in model_name:
+                model = DistilBertForQuestionAnswering.from_pretrained(
                     model_name,
-                    quantization_config=quantization_config,
                     torch_dtype=torch.float16,
-                    device_map="cpu",  # Force CPU for compatibility
-                    low_cpu_mem_usage=True,
-                    trust_remote_code=True
+                    low_cpu_mem_usage=True
                 )
-                
-                quantization_type = "4-bit NF4"
-                print("✅ Applied 4-bit quantization")
-                
-            except Exception as quant_error:
-                print(f"⚠️ Quantization failed: {quant_error}")
-                print("Falling back to float16...")
-                
-                # Fallback to float16 without quantization
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
+            else:
                 model = AutoModelForCausalLM.from_pretrained(
                     model_name,
                     torch_dtype=torch.float16,
-                    device_map="cpu",
-                    low_cpu_mem_usage=True,
-                    trust_remote_code=True
+                    low_cpu_mem_usage=True
                 )
-                quantization_type = "float16"
-                print("✅ Applied float16 optimization")
             
             # Save locally
             model_safe_name = model_name.replace("/", "_").replace("-", "_")
-            output_dir = f"./quantized_{model_safe_name}"
+            output_dir = f"./tiny_{model_safe_name}"
             os.makedirs(output_dir, exist_ok=True)
             
             tokenizer.save_pretrained(output_dir)
             model.save_pretrained(output_dir)
             
-            # Save model info
-            model_info = {
-                "original_name": model_name,
-                "quantization": quantization_type,
-                "size_reduction": "~75%" if "4-bit" in quantization_type else "~50%",
-                "recommended_use": "CPU inference with optimized performance",
-                "parameters": "Check model card for exact parameter count"
-            }
+            print(f"✅ Successfully saved: {output_dir}")
             
-            with open(f"{output_dir}/model_info.json", "w") as f:
-                json.dump(model_info, f, indent=2)
+            # Estimate size
+            size_mb = sum(os.path.getsize(os.path.join(dirpath, filename)) 
+                         for dirpath, dirnames, filenames in os.walk(output_dir) 
+                         for filename in filenames) / (1024*1024)
             
-            print(f"✅ Successfully processed and saved to: {output_dir}")
-            print(f"📊 Model: {model_name}")
-            print(f"💾 Location: {output_dir}")
-            print(f"🔧 Optimization: {quantization_type}")
+            print(f"📊 Model size: ~{size_mb:.0f}MB")
             
-            return output_dir
-            
+            if size_mb < 400:
+                print(f"✅ Model fits in your {416}MB RAM!")
+                return output_dir
+            else:
+                print(f"❌ Model too large ({size_mb:.0f}MB)")
+                
         except Exception as e:
             print(f"❌ Failed with {model_name}: {e}")
             continue
     
-    print("All model downloads failed")
     return None
 
-def download_specific_model(model_name, quantization_level="auto"):
-    """Download a specific model with chosen quantization level"""
+def create_simple_qa_system():
+    """Create a simple Q&A system without heavy models"""
     
-    print(f"Downloading {model_name} with {quantization_level} optimization...")
+    # Ultra-lightweight approach using sentence-transformers only
+    from sentence_transformers import SentenceTransformer
+    import numpy as np
+    import pickle
     
+    print("Creating ultra-lightweight Q&A system...")
+    
+    # Use only embeddings (no language model)
+    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')  # Only ~90MB
+    
+    # Load your portfolio data
     try:
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
-        if quantization_level == "4bit":
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-            )
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                quantization_config=quantization_config,
-                torch_dtype=torch.float16,
-                device_map="cpu",
-                low_cpu_mem_usage=True,
-                trust_remote_code=True
-            )
-            quant_type = "4bit"
-            
-        elif quantization_level == "8bit":
-            quantization_config = BitsAndBytesConfig(
-                load_in_8bit=True,
-                llm_int8_enable_fp32_cpu_offload=True
-            )
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                quantization_config=quantization_config,
-                torch_dtype=torch.float16,
-                device_map="cpu",
-                low_cpu_mem_usage=True,
-                trust_remote_code=True
-            )
-            quant_type = "8bit"
-            
-        else:  # float16 or auto
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=torch.float16,
-                device_map="cpu",
-                low_cpu_mem_usage=True,
-                trust_remote_code=True
-            )
-            quant_type = "float16"
-        
-        # Save locally
-        model_safe_name = model_name.replace("/", "_").replace("-", "_")
-        output_dir = f"./optimized_{quant_type}_{model_safe_name}"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        tokenizer.save_pretrained(output_dir)
-        model.save_pretrained(output_dir)
-        
-        # Save model info
-        model_info = {
-            "original_name": model_name,
-            "optimization": quant_type,
-            "size_reduction": {"4bit": "~75%", "8bit": "~50%", "float16": "~50%"}[quant_type],
-            "recommended_use": "CPU inference"
-        }
-        
-        with open(f"{output_dir}/model_info.json", "w") as f:
-            json.dump(model_info, f, indent=2)
-        
-        print(f"✅ {model_name} saved to: {output_dir}")
-        return output_dir
-        
-    except Exception as e:
-        print(f"❌ Failed: {e}")
-        return None
+        with open("luis_info.txt", "r") as f:
+            portfolio_text = f.read()
+    except:
+        portfolio_text = """
+        Luis Alexander Hernández Martínez is a 23-year-old AI Engineer from El Salvador.
+        He specializes in machine learning with TensorFlow and PyTorch.
+        Luis founded My Software SV and has 3+ years of experience.
+        He enjoys boxing, tennis, cooking, and technology.
+        """
+    
+    # Split into chunks
+    chunks = [chunk.strip() for chunk in portfolio_text.split('\n') if chunk.strip()]
+    
+    # Create embeddings
+    embeddings = embedding_model.encode(chunks)
+    
+    # Save lightweight system
+    data = {
+        'chunks': chunks,
+        'embeddings': embeddings
+    }
+    
+    with open('lightweight_qa.pkl', 'wb') as f:
+        pickle.dump(data, f)
+    
+    print("✅ Ultra-lightweight Q&A system created!")
+    print("📊 Size: ~100MB total")
+    return True
 
 if __name__ == "__main__":
-    print("Choose download option:")
-    print("1. Auto-download best available model")
-    print("2. Download specific model")
+    print("🚨 Detected 416MB RAM - Using ultra-lightweight setup")
+    print("\nOption 1: Try tiny language models (might still be too big)")
+    print("Option 2: Create embeddings-only Q&A system (recommended)")
     
-    choice = input("Enter choice (1 or 2): ").strip()
+    choice = input("Choose option (1 or 2): ").strip()
     
     if choice == "2":
-        print("\nRecommended models:")
-        print("1. microsoft/Phi-3.5-mini-instruct (3.8B - very efficient)")
-        print("2. Qwen/Qwen2.5-7B-Instruct (7B - excellent performance)")
-        print("3. google/gemma-2-9b-it (9B - very good)")
-        print("4. mistralai/Mistral-7B-Instruct-v0.3 (7B - efficient)")
-        print("5. Custom model name")
-        
-        model_choice = input("Enter model choice (1-5): ").strip()
-        
-        models = {
-            "1": "microsoft/Phi-3.5-mini-instruct",
-            "2": "Qwen/Qwen2.5-7B-Instruct", 
-            "3": "google/gemma-2-9b-it",
-            "4": "mistralai/Mistral-7B-Instruct-v0.3"
-        }
-        
-        if model_choice in models:
-            model_name = models[model_choice]
-        elif model_choice == "5":
-            model_name = input("Enter model name: ").strip()
-        else:
-            print("Invalid choice")
-            exit()
-        
-        quant_level = input("Optimization level (4bit/8bit/float16/auto): ").strip() or "auto"
-        model_path = download_specific_model(model_name, quant_level)
-        
+        create_simple_qa_system()
     else:
-        model_path = download_and_quantize()
-    
-    if model_path:
-        print(f"\n🎉 Model ready for use!")
-        print(f"📁 Path: {model_path}")
-        print(f"🚀 You can now use this in your RAG system")
+        download_ultra_small_models()

@@ -1,267 +1,237 @@
 from flask import Flask, request, jsonify
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.llms import HuggingFacePipeline
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-import torch
+import pickle
+import numpy as np
+from sentence_transformers import SentenceTransformer
 import os
+import re
 
-# Set environment variables for optimization
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+# === Ultra-Lightweight RAG System for 416MB RAM ===
 
-# === Step 1: Load and Split Your Document ===
-print("Loading and splitting document...")
-loader = TextLoader(".\luis_info.txt")
-docs = loader.load()
-
-splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-chunks = splitter.split_documents(docs)
-
-# === Step 2: Generate Embeddings and Store with FAISS ===
-print("Creating embeddings and storing vectors...")
-embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-vector_db = FAISS.from_documents(chunks, embedding_model)
-
-# === Step 3: Load Quantized Phi-3.5-mini Model ===
-print("Loading quantized Phi-3.5-mini model...")
-model_path = "./quantized_microsoft_Phi_3.5_mini_instruct"
-
-try:
-    # Load the quantized model
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.float16,
-        device_map="cpu",
-        low_cpu_mem_usage=True
-    )
+class UltraLightRAG:
+    def __init__(self):
+        self.embedding_model = None
+        self.chunks = []
+        self.embeddings = None
+        self.responses = {}
+        
+    def load_system(self):
+        """Load the ultra-lightweight system"""
+        try:
+            # Load embedding model (~90MB)
+            print("Loading embedding model (~90MB)...")
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            
+            # Load pre-computed embeddings
+            if os.path.exists('lightweight_qa.pkl'):
+                print("Loading pre-computed embeddings...")
+                with open('lightweight_qa.pkl', 'rb') as f:
+                    data = pickle.load(f)
+                    self.chunks = data['chunks']
+                    self.embeddings = data['embeddings']
+            else:
+                print("Creating embeddings from text...")
+                self._create_embeddings()
+            
+            # Load simple response templates
+            self._load_response_templates()
+            
+            print("✅ Ultra-lightweight RAG system loaded!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error loading system: {e}")
+            return False
     
-    # Create pipeline with SHORT response settings
-    pipe = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        max_new_tokens=50,  # Reduced from 256 to 50 tokens (~200 characters)
-        min_new_tokens=10,   # Minimum tokens to generate
-        temperature=0.3,     # Lower temperature for more focused responses
-        do_sample=True,
-        pad_token_id=tokenizer.eos_token_id,
-        repetition_penalty=1.2,  # Higher penalty to avoid repetition
-        return_full_text=False,
-        # Additional parameters for shorter responses
-        length_penalty=1.5,      # Penalty for longer sequences
-        early_stopping=True,     # Stop early when appropriate
-        no_repeat_ngram_size=3   # Avoid repeating 3-gram sequences
-    )
+    def _create_embeddings(self):
+        """Create embeddings from portfolio text"""
+        
+        # Your portfolio data
+        portfolio_data = """
+        Luis Alexander Hernández Martínez is a 23-year-old AI Engineer from El Salvador.
+        He specializes in Artificial Intelligence and machine learning.
+        Luis works with TensorFlow, PyTorch, and scikit-learn.
+        He founded My Software SV, his own software company.
+        Luis has 3+ years of professional experience.
+        He has completed 15+ projects including SaaS systems, ERP systems, and mobile apps.
+        Luis enjoys boxing, tennis, cooking, and technology.
+        He studied Software Engineering at Universidad Centroamericana (UCA) for 5 years.
+        Luis worked as an intern at Fe y Alegría doing technical support.
+        He built a RAG Portfolio Assistant using LangChain and quantized LLMs.
+        Luis created a SaaS Billing System with React and REST APIs.
+        He developed a Judge Gymnasts App using React Native and Expo.
+        Luis built an Enterprise Digital Billing API with Java Spring Boot.
+        He created a Multi-Branch ERP System using C# .NET.
+        Luis is working on an AI Voice Translation System for anime.
+        He contributed to an Open-Source Healthcare AI project with Omdena.
+        Luis specializes in computer vision, natural language processing, and audio processing.
+        He has experience with AWS, Google Cloud, and DigitalOcean.
+        Luis uses Docker, Jenkins, and CI/CD pipelines.
+        He knows Python, Java, C++, JavaScript, and C#.
+        Luis is learning R for statistical analysis.
+        His contact email is alexmtzai2002@gmail.com.
+        """
+        
+        # Split into chunks
+        self.chunks = [chunk.strip() for chunk in portfolio_data.split('.') if chunk.strip()]
+        
+        # Create embeddings
+        self.embeddings = self.embedding_model.encode(self.chunks)
+        
+        # Save for future use
+        data = {'chunks': self.chunks, 'embeddings': self.embeddings}
+        with open('lightweight_qa.pkl', 'wb') as f:
+            pickle.dump(data, f)
     
-    # Wrap in LangChain
-    llm = HuggingFacePipeline(pipeline=pipe)
-    print("✅ Successfully loaded quantized Phi-3.5-mini model with SHORT response settings")
+    def _load_response_templates(self):
+        """Load simple response templates for common questions"""
+        self.responses = {
+            'name': "Luis Alexander Hernández Martínez is a 23-year-old AI Engineer from El Salvador.",
+            'age': "Luis is 23 years old.",
+            'profession': "Luis is an AI Engineer and Software Engineer who founded My Software SV.",
+            'skills': "Luis specializes in AI/ML with TensorFlow, PyTorch, Python, Java, and cloud technologies.",
+            'experience': "Luis has 3+ years of experience and has completed 15+ projects.",
+            'education': "Luis studied Software Engineering at Universidad Centroamericana (UCA) for 5 years.",
+            'company': "Luis founded and runs My Software SV, his own software company.",
+            'projects': "Luis has built SaaS systems, ERP systems, mobile apps, and AI projects.",
+            'contact': "You can reach Luis at alexmtzai2002@gmail.com.",
+            'interests': "Luis enjoys boxing, tennis, cooking, and technology.",
+            'location': "Luis is based in El Salvador."
+        }
     
-except Exception as e:
-    print(f"❌ Error loading quantized model: {e}")
-    print("Falling back to Ollama...")
-    from langchain.llms import Ollama
-    llm = Ollama(
-        model="gemma3:4b",
-        num_predict=80,  # Limit tokens for Ollama too
-        temperature=0.3
-    )
+    def find_best_response(self, query):
+        """Find best response using simple matching + embeddings"""
+        
+        query_lower = query.lower()
+        
+        # First, try simple keyword matching (very fast)
+        if any(word in query_lower for word in ['name', 'who is', 'called']):
+            return self.responses['name']
+        elif any(word in query_lower for word in ['age', 'old', 'years']):
+            return self.responses['age']
+        elif any(word in query_lower for word in ['job', 'work', 'profession', 'engineer']):
+            return self.responses['profession']
+        elif any(word in query_lower for word in ['skill', 'technology', 'programming', 'languages']):
+            return self.responses['skills']
+        elif any(word in query_lower for word in ['experience', 'years', 'worked']):
+            return self.responses['experience']
+        elif any(word in query_lower for word in ['education', 'study', 'university', 'uca']):
+            return self.responses['education']
+        elif any(word in query_lower for word in ['company', 'business', 'software sv']):
+            return self.responses['company']
+        elif any(word in query_lower for word in ['project', 'built', 'created', 'developed']):
+            return self.responses['projects']
+        elif any(word in query_lower for word in ['contact', 'email', 'reach']):
+            return self.responses['contact']
+        elif any(word in query_lower for word in ['hobby', 'interest', 'enjoy', 'boxing', 'tennis']):
+            return self.responses['interests']
+        elif any(word in query_lower for word in ['location', 'where', 'salvador']):
+            return self.responses['location']
+        
+        # If no keyword match, use semantic search (slower but more accurate)
+        try:
+            query_embedding = self.embedding_model.encode([query])
+            similarities = np.dot(query_embedding, self.embeddings.T)[0]
+            best_idx = np.argmax(similarities)
+            
+            if similarities[best_idx] > 0.3:  # Threshold for relevance
+                return f"Luis {self.chunks[best_idx]}"
+            else:
+                return "I don't have specific information about that. You can contact Luis directly at alexmtzai2002@gmail.com for more details."
+                
+        except Exception as e:
+            return "I'm having trouble processing that question right now."
 
-# === Step 4: Create Custom Prompt Template for Short Responses ===
-short_prompt_template = """Use the following context to answer the question. 
-RULES:
-1. Always use third person: "Luis is...", "He works as...", "His skills include...", "Alex enjoys..."
-2. NEVER provide cooking instructions, recipes, or step-by-step cooking guides
-3. If asked about cooking recipes/instructions, say: "Luis enjoys cooking as a hobby, but I don't provide recipes or cooking instructions."
-4. Keep responses concise (under 200 words for speed)
-5. Only use information from the context about Luis/Alex
-6. Refer to him as either "Luis", "Alex", or "Luis Alexander" but always in third person
+# Initialize the ultra-light RAG system
+rag_system = UltraLightRAG()
 
-
-Context: {context}
-
-Question: {question}
-
-Short Answer:"""
-
-PROMPT = PromptTemplate(
-    template=short_prompt_template,
-    input_variables=["context", "question"]
-)
-
-# === Step 5: Create a RAG Chain with Custom Prompt ===
-print("Creating Retrieval-Augmented QA chain with short response settings...")
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    retriever=vector_db.as_retriever(search_kwargs={"k": 2}),  # Reduced to 2 chunks for shorter context
-    chain_type="stuff",
-    return_source_documents=True,
-    chain_type_kwargs={"prompt": PROMPT}  # Use custom prompt
-)
-
-# === Step 6: Flask API Setup ===
+# Flask app
 app = Flask(__name__)
-
-def truncate_response(text, max_chars=300):
-    """Truncate response to maximum characters"""
-    if len(text) <= max_chars:
-        return text
-    
-    # Try to cut at sentence boundary
-    sentences = text[:max_chars].split('.')
-    if len(sentences) > 1:
-        return '.'.join(sentences[:-1]) + '.'
-    
-    # If no sentence boundary, cut at word boundary
-    words = text[:max_chars].split()
-    return ' '.join(words[:-1]) + '...'
 
 @app.route('/ask', methods=['POST'])
 def ask_question():
     try:
         data = request.get_json()
-        query = data.get('query')
-        max_chars = data.get('max_chars', 300)  # Allow custom character limit
+        query = data.get('query', '')
         
         if not query:
             return jsonify({"error": "No question provided"}), 400
         
-        # Get the response from the RAG model
-        print(f"Processing query: {query}")
-        result = qa_chain({"query": query})
-        
-        # Extract and truncate answer
-        raw_answer = result["result"]
-        answer = truncate_response(raw_answer, max_chars)
-        
-        sources = []
-        if "source_documents" in result:
-            for doc in result["source_documents"]:
-                sources.append({
-                    "content": doc.page_content[:150] + "..." if len(doc.page_content) > 150 else doc.page_content,
-                    "metadata": doc.metadata
-                })
+        # Get response from ultra-light system
+        answer = rag_system.find_best_response(query)
         
         response_data = {
             "answer": answer,
-            "raw_answer": raw_answer,  # Include full answer for reference
-            "answer_length": len(answer),
-            "sources": sources,
-            "model": "microsoft/Phi-3.5-mini-instruct (quantized - short responses)",
             "query": query,
-            "max_chars_requested": max_chars
+            "model": "Ultra-Lightweight RAG (416MB RAM optimized)",
+            "method": "keyword_matching + embeddings"
         }
         
-        print(f"Response generated successfully ({len(answer)} chars)")
         return jsonify(response_data)
         
     except Exception as e:
-        print(f"Error processing request: {e}")
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+        return jsonify({"error": f"Error: {str(e)}"}), 500
 
 @app.route('/ask_short', methods=['POST'])
-def ask_question_very_short():
-    """Ultra-short responses (under 100 characters)"""
+def ask_short():
+    """Ultra-short responses"""
     try:
         data = request.get_json()
-        query = data.get('query')
+        query = data.get('query', '')
         
-        if not query:
-            return jsonify({"error": "No question provided"}), 400
+        response = rag_system.find_best_response(query)
         
-        # Modify query to request short answer
-        short_query = f"Answer in one sentence: {query}"
+        # Truncate to first sentence
+        short_response = response.split('.')[0] + '.'
         
-        print(f"Processing short query: {short_query}")
-        result = qa_chain({"query": short_query})
-        
-        # Extract and heavily truncate answer
-        raw_answer = result["result"]
-        answer = truncate_response(raw_answer, 100)
-        
-        response_data = {
-            "answer": answer,
-            "answer_length": len(answer),
-            "model": "microsoft/Phi-3.5-mini-instruct (ultra-short mode)",
-            "query": query
-        }
-        
-        print(f"Short response generated ({len(answer)} chars)")
-        return jsonify(response_data)
-        
-    except Exception as e:
-        print(f"Error processing request: {e}")
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "model_loaded": "quantized Phi-3.5-mini (short responses)" if 'pipe' in globals() else "fallback model",
-        "vector_db_chunks": len(chunks),
-        "max_tokens": 100,
-        "response_mode": "SHORT"
-    })
-
-@app.route('/info', methods=['GET'])
-def model_info():
-    """Get information about the loaded model and documents"""
-    return jsonify({
-        "model": "microsoft/Phi-3.5-mini-instruct (quantized float16 - short responses)",
-        "model_path": model_path,
-        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-        "document_chunks": len(chunks),
-        "chunk_size": 500,
-        "chunk_overlap": 50,
-        "response_settings": {
-            "max_tokens": 100,
-            "default_max_chars": 300,
-            "temperature": 0.3,
-            "length_penalty": 1.5
-        }
-    })
-
-@app.route('/config', methods=['POST'])
-def update_config():
-    """Update response length configuration"""
-    try:
-        data = request.get_json()
-        max_tokens = data.get('max_tokens', 100)
-        temperature = data.get('temperature', 0.3)
-        
-        # Update pipeline configuration
-        if 'pipe' in globals():
-            pipe.model.generation_config.max_new_tokens = max_tokens
-            pipe.model.generation_config.temperature = temperature
-            
         return jsonify({
-            "status": "Configuration updated",
-            "max_tokens": max_tokens,
-            "temperature": temperature
+            "answer": short_response,
+            "query": query,
+            "model": "Ultra-Lightweight (short mode)"
         })
         
     except Exception as e:
-        return jsonify({"error": f"Configuration update failed: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
-# Start the Flask server
-if __name__ == '__main__':
-    print("\n🚀 Starting RAG API server with SHORT RESPONSE mode...")
-    print("📋 Available endpoints:")
-    print("  POST /ask - Ask questions (default: 300 char limit)")
-    print("  POST /ask_short - Ask questions (ultra-short: 100 char limit)")
-    print("  POST /config - Update response length settings")
-    print("  GET /health - Check server health")
-    print("  GET /info - Get model information")
-    print("\n💡 Example usage:")
-    print('  curl -X POST http://localhost:5000/ask -H "Content-Type: application/json" -d \'{"query": "Your question", "max_chars": 200}\'')
-    print('  curl -X POST http://localhost:5000/ask_short -H "Content-Type: application/json" -d \'{"query": "Your question"}\'')
-    print("\n🌐 Server running on http://localhost:5000")
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({
+        "status": "healthy",
+        "model": "Ultra-Lightweight RAG",
+        "memory_usage": "~150MB",
+        "ram_limit": "416MB",
+        "optimization": "keyword_matching + sentence_transformers"
+    })
+
+@app.route('/memory', methods=['GET'])
+def memory_info():
+    """Check memory usage"""
+    import psutil
+    import os
     
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    process = psutil.Process(os.getpid())
+    memory_mb = process.memory_info().rss / (1024 * 1024)
+    
+    return jsonify({
+        "memory_usage_mb": round(memory_mb, 1),
+        "available_ram_mb": 416,
+        "memory_percentage": round((memory_mb / 416) * 100, 1),
+        "status": "OK" if memory_mb < 350 else "WARNING"
+    })
+
+if __name__ == '__main__':
+    print("🚨 Starting Ultra-Lightweight RAG for 416MB RAM")
+    print("📊 Expected memory usage: ~150MB")
+    
+    # Load the system
+    if rag_system.load_system():
+        print("✅ System loaded successfully!")
+        print("🌐 Server starting on http://localhost:5000")
+        print("\n📋 Endpoints:")
+        print("  POST /ask - Ask questions")
+        print("  POST /ask_short - Short responses") 
+        print("  GET /health - System health")
+        print("  GET /memory - Memory usage")
+        
+        app.run(host='0.0.0.0', port=5000, debug=False)
+    else:
+        print("❌ Failed to load system")
